@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { Bookmark, ExternalLink, BookText, FileText, FileSearch } from 'lucide-react';
+import { Bookmark, ExternalLink, BookText, FileText, FileSearch, Download } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { cn } from '../utils/cn';
 import { ShareButton } from './ShareButton';
 import DOMPurify from 'dompurify';
+import ReactMarkdown from 'react-markdown';
 
 const API_BASE_URL = 'https://molly-sweeping-exactly.ngrok-free.app';
 
@@ -35,6 +36,7 @@ export function ArticleCard({ article, expanded, onToggleExpand }: ArticleCardPr
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [currentAnalysisType, setCurrentAnalysisType] = useState<SummaryType | null>(null);
 
   const handleClick = () => {
     markAsRead(article.id);
@@ -45,6 +47,7 @@ export function ArticleCard({ article, expanded, onToggleExpand }: ArticleCardPr
     setLoading(type);
     setError(null);
     setAnalysisResult(null);
+    setCurrentAnalysisType(type);
 
     try {
       const endpoint = ENDPOINTS[type](article.link);
@@ -63,6 +66,21 @@ export function ArticleCard({ article, expanded, onToggleExpand }: ArticleCardPr
     } finally {
       setLoading(null);
     }
+  };
+
+  const handleDownload = () => {
+    if (!analysisResult || !currentAnalysisType) return;
+
+    const fileName = `${article.title.slice(0, 50).replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${currentAnalysisType}.md`;
+    const blob = new Blob([analysisResult], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   // Sanitize HTML content
@@ -138,8 +156,8 @@ export function ArticleCard({ article, expanded, onToggleExpand }: ArticleCardPr
               className="mt-4 text-gray-700 prose prose-sm max-w-none"
               dangerouslySetInnerHTML={{ __html: sanitizedContent }}
             />
-            <div className="mt-4 space-y-4">
-              <div className="flex justify-between items-center">
+            <div className="mt-4 flex flex-col gap-4">
+              <div className="flex items-center justify-between">
                 <a
                   href={article.link}
                   target="_blank"
@@ -149,64 +167,78 @@ export function ArticleCard({ article, expanded, onToggleExpand }: ArticleCardPr
                   Read full article <ExternalLink size={16} className="ml-1" />
                 </a>
               </div>
-
-              <div className="flex gap-3">
+              
+              <div className="flex gap-2">
                 <button
                   onClick={() => fetchAnalysis('tldr')}
                   disabled={loading !== null}
-                  className={cn(
-                    'flex items-center px-3 py-2 text-sm font-medium rounded-md',
-                    'bg-blue-50 text-blue-600 hover:bg-blue-100',
-                    'disabled:opacity-50 disabled:cursor-not-allowed'
-                  )}
+                  className="flex-1 inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                 >
-                  <BookText size={16} className="mr-2" />
-                  TLDR
+                  {loading === 'tldr' ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-500 border-t-transparent" />
+                  ) : (
+                    <>
+                      <BookText size={16} className="mr-2" />
+                      TLDR
+                    </>
+                  )}
                 </button>
                 <button
                   onClick={() => fetchAnalysis('summary')}
                   disabled={loading !== null}
-                  className={cn(
-                    'flex items-center px-3 py-2 text-sm font-medium rounded-md',
-                    'bg-green-50 text-green-600 hover:bg-green-100',
-                    'disabled:opacity-50 disabled:cursor-not-allowed'
-                  )}
+                  className="flex-1 inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                 >
-                  <FileText size={16} className="mr-2" />
-                  EXEC Summary
+                  {loading === 'summary' ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-500 border-t-transparent" />
+                  ) : (
+                    <>
+                      <FileText size={16} className="mr-2" />
+                      EXEC Summary
+                    </>
+                  )}
                 </button>
                 <button
                   onClick={() => fetchAnalysis('full')}
                   disabled={loading !== null}
-                  className={cn(
-                    'flex items-center px-3 py-2 text-sm font-medium rounded-md',
-                    'bg-purple-50 text-purple-600 hover:bg-purple-100',
-                    'disabled:opacity-50 disabled:cursor-not-allowed'
-                  )}
+                  className="flex-1 inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                 >
-                  <FileSearch size={16} className="mr-2" />
-                  Full Analysis
+                  {loading === 'full' ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-500 border-t-transparent" />
+                  ) : (
+                    <>
+                      <FileSearch size={16} className="mr-2" />
+                      Full Analysis
+                    </>
+                  )}
                 </button>
               </div>
 
-              {loading && (
-                <div className="mt-4 text-center">
-                  <div className="animate-spin inline-block w-6 h-6 border-3 border-blue-600 border-t-transparent rounded-full" />
-                  <p className="mt-2 text-sm text-gray-600">Generating {loading}...</p>
-                </div>
-              )}
-
               {error && (
-                <div className="mt-4 p-3 bg-red-50 text-red-600 rounded-md">
-                  {error}
+                <div className="mt-2 text-red-600 text-sm">
+                  Error: {error}
                 </div>
               )}
 
               {analysisResult && (
                 <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                  <pre className="whitespace-pre-wrap text-sm text-gray-700">
-                    {analysisResult}
-                  </pre>
+                  <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-sm font-medium text-gray-700">
+                      {currentAnalysisType === 'tldr' ? 'TLDR Summary' :
+                       currentAnalysisType === 'summary' ? 'Executive Summary' :
+                       'Full Analysis'}
+                    </h3>
+                    <button
+                      onClick={handleDownload}
+                      className="inline-flex items-center px-2 py-1 text-sm text-gray-600 hover:text-gray-900"
+                      title="Download analysis"
+                    >
+                      <Download size={16} className="mr-1" />
+                      Download
+                    </button>
+                  </div>
+                  <div className="prose prose-sm max-w-none">
+                    <ReactMarkdown>{analysisResult}</ReactMarkdown>
+                  </div>
                 </div>
               )}
             </div>
